@@ -1,4 +1,5 @@
 import { ApiError } from './types';
+import { CONFIG } from './config';
 
 export function logInfo(message: string): void {
     console.log(`[INFO] ${new Date().toISOString()}: ${message}`);
@@ -40,4 +41,26 @@ export async function retry<T>(
     }
 
     throw lastError || new Error('All retry attempts failed');
+}
+
+export function calculateClipSize(icpBalance: number, currentPrice: number): number {
+    const clipSizeICP = CONFIG.CLIP_SIZE_USDT / currentPrice;
+    return Math.min(icpBalance, clipSizeICP);
+}
+
+export function findBestPrice(orderBook: any, clipSize: number): number {
+    let accumulatedQty = 0;
+    let worstPrice = 0;
+
+    for (const [price, qty] of orderBook.bids) {
+        accumulatedQty += parseFloat(qty);
+        worstPrice = parseFloat(price);
+        if (accumulatedQty >= clipSize) break;
+    }
+
+    return worstPrice;
+}
+
+export function getRandomDelay(): number {
+    return Math.floor(Math.random() * (CONFIG.MAX_DELAY_MS - CONFIG.MIN_DELAY_MS + 1) + CONFIG.MIN_DELAY_MS);
 }

@@ -90,12 +90,14 @@ export async function getAccountBalance(asset: string): Promise<string> {
     return balance.free;
 }
 
-export async function swapICPtoUSDT(amount: number): Promise<Order> {
+export async function swapICPtoUSDT(amount: number, price: number): Promise<Order> {
     const params = {
         symbol: CONFIG.SYMBOLS.ICP_USDT,
         side: 'SELL',
-        type: 'MARKET',
+        type: 'LIMIT',
         quantity: amount.toFixed(8),
+        price: price.toFixed(8),
+        timeInForce: 'IOC',
     };
 
     return privatePostRequest('/api/v3/order', params);
@@ -106,4 +108,8 @@ export async function checkOrderStatus(orderId: number): Promise<Order> {
         symbol: CONFIG.SYMBOLS.ICP_USDT,
         orderId,
     });
+}
+
+export async function getOrderBook(symbol: string): Promise<any> {
+    return privateGetRequest('/api/v3/depth', { symbol, limit: 100 });
 }

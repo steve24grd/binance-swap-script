@@ -14,6 +14,9 @@ export const CONFIG = {
         ICP: 'ICP',
         USDT: 'USDT',
     },
+    CLIP_SIZE_USDT: 500,
+    MIN_DELAY_MS: 1000,
+    MAX_DELAY_MS: 60000,
 };
 
 if (!CONFIG.API_KEY || !CONFIG.API_SECRET) {

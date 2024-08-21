@@ -1,6 +1,43 @@
-import { checkMaintenanceStatus, getDepositAddress, getAccountBalance, swapICPtoUSDT, checkOrderStatus } from './api';
-import { logError, logInfo, retry } from './utils';
+import {
+    checkMaintenanceStatus,
+    getDepositAddress,
+    getAccountBalance,
+    swapICPtoUSDT,
+    checkOrderStatus,
+    getOrderBook
+} from './api';
+import {
+    logError,
+    logInfo,
+    retry,
+    sleep,
+    calculateClipSize,
+    findBestPrice,
+    getRandomDelay
+} from './utils';
 import { CONFIG } from './config';
+
+async function executeClipLiquidation(clipSize: number): Promise<void> {
+    try {
+        const orderBook = await retry(() => getOrderBook(CONFIG.SYMBOLS.ICP_USDT));
+        const bestPrice = findBestPrice(orderBook, clipSize);
+
+        logInfo(`Executing clip liquidation: ${clipSize} ICP at ${bestPrice} USDT`);
+
+        const swapOrder = await retry(() => swapICPtoUSDT(clipSize, bestPrice));
+        logInfo(`Clip liquidation order placed: ${swapOrder.orderId}`);
+
+        const orderStatus = await retry(() => checkOrderStatus(swapOrder.orderId));
+
+        if (orderStatus.status === 'FILLED') {
+            logInfo(`Clip liquidation successful: ${clipSize} ICP sold at ${bestPrice} USDT`);
+        } else {
+            logInfo(`Clip liquidation partially filled or failed. Status: ${orderStatus.status}`);
+        }
+    } catch (error) {
+        logError('Error during clip liquidation', error as Error);
+    }
+}
 
 async function main() {
     try {
@@ -22,40 +59,29 @@ async function main() {
         const icpBalance = await retry(() => getAccountBalance(CONFIG.ASSETS.ICP));
         logInfo(`Current ICP balance: ${icpBalance}`);
 
-        // 4. Check USDT balance
-        const usdtBalance = await retry(() => getAccountBalance(CONFIG.ASSETS.USDT));
-        logInfo(`Current USDT balance: ${usdtBalance}`);
+        const orderBook = await retry(() => getOrderBook(CONFIG.SYMBOLS.ICP_USDT));
+        const currentPrice = parseFloat(orderBook.bids[0][0]);
 
-        // 5. Swap ICP to USDT
-        const swapAmount = 1.0; // Example amount, adjust as needed
-        if (parseFloat(icpBalance) < swapAmount) {
-            logInfo(`Insufficient ICP balance for swap. Required: ${swapAmount}, Available: ${icpBalance}`);
-            return;
+        let remainingBalance = parseFloat(icpBalance);
+
+        while (remainingBalance > 1) {
+            const clipSize = calculateClipSize(remainingBalance, currentPrice);
+
+            await executeClipLiquidation(clipSize);
+
+            remainingBalance -= clipSize;
+
+            if (remainingBalance > 1) {
+                const delay = getRandomDelay();
+                logInfo(`Waiting ${delay}ms before next clip liquidation`);
+                await sleep(delay);
+            }
         }
 
-        const swapOrder = await retry(() => swapICPtoUSDT(swapAmount));
-        logInfo(`Swap order placed: ${swapOrder.orderId}`);
-
-        // 6. Check swap result
-        let orderStatus = await retry(() => checkOrderStatus(swapOrder.orderId));
-        let retries = 5;
-        while (orderStatus.status !== 'FILLED' && retries > 0) {
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before checking again
-            orderStatus = await retry(() => checkOrderStatus(swapOrder.orderId));
-            retries--;
-        }
-
-        if (orderStatus.status === 'FILLED') {
-            logInfo('Swap completed successfully');
-        } else {
-            logInfo(`Swap order final status: ${orderStatus.status}`);
-        }
-
-        // 7. Get updated portfolio
-        const updatedIcpBalance = await retry(() => getAccountBalance(CONFIG.ASSETS.ICP));
-        const updatedUsdtBalance = await retry(() => getAccountBalance(CONFIG.ASSETS.USDT));
-        logInfo(`Updated ICP balance: ${updatedIcpBalance}`);
-        logInfo(`Updated USDT balance: ${updatedUsdtBalance}`);
+        const finalIcpBalance = await retry(() => getAccountBalance(CONFIG.ASSETS.ICP));
+        const finalUsdtBalance = await retry(() => getAccountBalance(CONFIG.ASSETS.USDT));
+        logInfo(`Final ICP balance: ${finalIcpBalance}`);
+        logInfo(`Final USDT balance: ${finalUsdtBalance}`);
 
     } catch (error) {
         logError('An error occurred during the process', error as Error);
