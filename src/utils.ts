@@ -43,9 +43,10 @@ export async function retry<T>(
     throw lastError || new Error('All retry attempts failed');
 }
 
-export function calculateClipSize(icpBalance: number, currentPrice: number): number {
-    const clipSizeICP = CONFIG.CLIP_SIZE_USDT / currentPrice;
-    return Math.min(icpBalance, clipSizeICP);
+export function calculateClips(icpBalance: number, currentPrice: number): number {
+    const totalBalanceInUSDT = icpBalance * currentPrice;
+    const numberOfClips = Math.floor(totalBalanceInUSDT / CONFIG.CLIP_SIZE_USDT);
+    return numberOfClips;
 }
 
 export function findBestPrice(orderBook: any, clipSize: number): number {

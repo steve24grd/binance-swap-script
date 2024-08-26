@@ -17,6 +17,19 @@ function signRequest(query: string): string {
         .digest('hex');
 }
 
+const publicApi = axios.create({
+    baseURL: CONFIG.BASE_URL,
+});
+
+async function publicGetRequest(endpoint: string, params: Record<string, any> = {}): Promise<any> {
+    try {
+        const response = await publicApi.get(endpoint, { params });
+        return response.data;
+    } catch (error) {
+        throw handleApiError(error);
+    }
+}
+
 async function privateGetRequest(endpoint: string, params: Record<string, any> = {}): Promise<any> {
     const timestamp = Date.now();
     const queryString = Object.entries({ ...params, timestamp, recvWindow: CONFIG.RECV_WINDOW })
@@ -111,5 +124,5 @@ export async function checkOrderStatus(orderId: number): Promise<Order> {
 }
 
 export async function getOrderBook(symbol: string): Promise<any> {
-    return privateGetRequest('/api/v3/depth', { symbol, limit: 100 });
+    return publicGetRequest('/api/v3/depth', { symbol, limit: 100 });
 }

@@ -14,7 +14,7 @@ export const CONFIG = {
         ICP: 'ICP',
         USDT: 'USDT',
     },
-    CLIP_SIZE_USDT: 500,
+    CLIP_SIZE_USDT: Number(process.env.CLIP_SIZE_USDT) || 500, // Moved to .env
     MIN_DELAY_MS: 1000,
     MAX_DELAY_MS: 60000,
 };

@@ -11,7 +11,7 @@ import {
     logInfo,
     retry,
     sleep,
-    calculateClipSize,
+    calculateClips,
     findBestPrice,
     getRandomDelay
 } from './utils';
@@ -55,27 +55,38 @@ async function main() {
             logInfo(`ICP deposit tag: ${depositAddress.tag}`);
         }
 
-        // 3. Check ICP balance
+        // 3. Check ICP balance & USDT balance
         const icpBalance = await retry(() => getAccountBalance(CONFIG.ASSETS.ICP));
         logInfo(`Current ICP balance: ${icpBalance}`);
 
+        const usdtBalance = await retry(() => getAccountBalance(CONFIG.ASSETS.USDT));
+        logInfo(`Current USDT balance: ${usdtBalance}`);
+
         const orderBook = await retry(() => getOrderBook(CONFIG.SYMBOLS.ICP_USDT));
+        console.log("orderBook: " , orderBook);
+
         const currentPrice = parseFloat(orderBook.bids[0][0]);
+        console.log("currentPrice: " , currentPrice);
 
         let remainingBalance = parseFloat(icpBalance);
+        const totalClips = calculateClips(remainingBalance, currentPrice);
+        const clipSizeICP = CONFIG.CLIP_SIZE_USDT / currentPrice;
 
-        while (remainingBalance > 1) {
-            const clipSize = calculateClipSize(remainingBalance, currentPrice);
+        for (let i = 0; i < totalClips; i++) {
+            await executeClipLiquidation(clipSizeICP);
 
-            await executeClipLiquidation(clipSize);
+            remainingBalance -= clipSizeICP;
 
-            remainingBalance -= clipSize;
-
-            if (remainingBalance > 1) {
+            if (i < totalClips - 1) {
                 const delay = getRandomDelay();
                 logInfo(`Waiting ${delay}ms before next clip liquidation`);
                 await sleep(delay);
             }
+        }
+
+        // Handle remaining balance if it's less than a full clip but still significant
+        if (remainingBalance > 1) {
+            await executeClipLiquidation(remainingBalance);
         }
 
         const finalIcpBalance = await retry(() => getAccountBalance(CONFIG.ASSETS.ICP));
