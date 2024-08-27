@@ -6,7 +6,7 @@ export const CONFIG = {
     API_KEY: process.env.BINANCE_API_KEY || '',
     API_SECRET: process.env.BINANCE_API_SECRET || '',
     BASE_URL: process.env.BINANCE_BASE_URL || 'https://api.binance.com',
-    RECV_WINDOW: 5000,
+    RECV_WINDOW: Number(process.env.RECV_WINDOW) || 5000, // Moved to .env
     SYMBOLS: {
         ICP_USDT: 'ICPUSDT',
     },
