@@ -63,14 +63,21 @@ async function main() {
         logInfo(`Current USDT balance: ${usdtBalance}`);
 
         const orderBook = await retry(() => getOrderBook(CONFIG.SYMBOLS.ICP_USDT));
-        console.log("orderBook: " , orderBook);
+        console.log("orderBook: ", orderBook);
 
         const currentPrice = parseFloat(orderBook.bids[0][0]);
-        console.log("currentPrice: " , currentPrice);
+        console.log("currentPrice: ", currentPrice);
 
         let remainingBalance = parseFloat(icpBalance);
         const totalClips = calculateClips(remainingBalance, currentPrice);
-        const clipSizeICP = CONFIG.CLIP_SIZE_USDT / currentPrice;
+        let clipSizeICP = Math.round(CONFIG.CLIP_SIZE_USDT / currentPrice); // Round to nearest integer
+
+        console.log("clipSizeICP: ", clipSizeICP);
+
+        if (clipSizeICP < 1.0) {
+            logInfo("Clip size is too small. Setting clip size to 1.0 ICP...");
+            clipSizeICP = 1.0;
+        }
 
         for (let i = 0; i < totalClips; i++) {
             await executeClipLiquidation(clipSizeICP);
