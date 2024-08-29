@@ -43,6 +43,7 @@ async function main() {
     try {
         // 1. Check ICP maintenance status - Only on mainnet
         const maintenanceStatus = await retry(() => checkMaintenanceStatus(CONFIG.ASSETS.ICP));
+        console.log("maintenanceStatus: ", maintenanceStatus);
         if (maintenanceStatus.isUnderMaintenance) {
             logInfo(`ICP is currently under maintenance. Details: ${maintenanceStatus.details}`);
             return;
@@ -50,6 +51,7 @@ async function main() {
 
         // 2. Get ICP deposit address
         const depositAddress = await retry(() => getDepositAddress(CONFIG.ASSETS.ICP));
+        console.log("depositAddress: ", depositAddress);
         logInfo(`ICP deposit address: ${depositAddress.address}`);
         if (depositAddress.tag) {
             logInfo(`ICP deposit tag: ${depositAddress.tag}`);
@@ -67,6 +69,11 @@ async function main() {
 
         const currentPrice = parseFloat(orderBook.bids[0][0]);
         console.log("currentPrice: ", currentPrice);
+
+        if (currentPrice <= 0) {
+            logError(`Invalid current price: ${currentPrice}. Exiting.`);
+            return;
+        }
 
         let remainingBalance = parseFloat(icpBalance);
         const totalClips = calculateClips(remainingBalance, currentPrice);
@@ -103,6 +110,7 @@ async function main() {
 
     } catch (error) {
         logError('An error occurred during the process', error as Error);
+        process.exit(1);
     }
 }
 

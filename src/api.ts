@@ -124,5 +124,9 @@ export async function checkOrderStatus(orderId: number): Promise<Order> {
 }
 
 export async function getOrderBook(symbol: string): Promise<any> {
-    return publicGetRequest('/api/v3/depth', { symbol, limit: 100 });
+    const response = await publicGetRequest('/api/v3/depth', { symbol, limit: 100 });
+    if (!response || !response.bids || response.bids.length === 0) {
+        throw new Error('Invalid order book data received');
+    }
+    return response;
 }
