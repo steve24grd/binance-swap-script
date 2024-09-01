@@ -4,7 +4,8 @@ import {
     getAccountBalance,
     swapICPtoUSDT,
     checkOrderStatus,
-    getOrderBook
+    getOrderBook,
+    closeResponseCapture
 } from './api';
 import {
     logError,
@@ -113,8 +114,22 @@ async function main() {
 
     } catch (error) {
         logError('An error occurred during the process', error as Error);
-        process.exit(1);
+    } finally {
+        // Ensure closeResponseCapture is called even if an error occurs
+        try {
+            await closeResponseCapture();
+            logInfo('Response capture closed successfully');
+        } catch (error) {
+            logError('Error closing response capture', error as Error);
+        }
     }
 }
 
-main();
+// Execute the main function
+main().catch(error => {
+    logError('Unhandled error in main execution', error as Error);
+    // Attempt to close response capture even in case of unhandled errors
+    closeResponseCapture().catch(closeError => {
+        logError('Error closing response capture after unhandled error', closeError as Error);
+    });
+});

@@ -32,3 +32,15 @@ export interface ApiError extends Error {
     code?: number;
     url?: string;
 }
+
+export interface ApiResponse {
+    endpoint: string;
+    method: string;
+    timestamp: string;
+    response: any;
+}
+
+export interface ResponseStorage {
+    store(response: ApiResponse): Promise<void>;
+    close(): Promise<void>;
+}

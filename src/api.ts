@@ -1,13 +1,26 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import crypto from 'crypto';
 import { CONFIG } from './config';
 import { MaintenanceStatus, DepositAddress, Balance, Order, ApiError } from './types';
+import { ResponseCapture } from './responseCapture';
+import { FileResponseStorage } from './fileStorage';
 
-const api = axios.create({
+// Initialize response capture if in development mode
+let responseCapture: ResponseCapture | null = null;
+if (CONFIG.IS_DEVELOPMENT) {
+    const storage = new FileResponseStorage(CONFIG.RESPONSE_LOG_FILE);
+    responseCapture = new ResponseCapture(storage);
+}
+
+const api: AxiosInstance = axios.create({
     baseURL: CONFIG.BASE_URL,
     headers: {
         'X-MBX-APIKEY': CONFIG.API_KEY,
     },
+});
+
+const publicApi: AxiosInstance = axios.create({
+    baseURL: CONFIG.BASE_URL,
 });
 
 function signRequest(query: string): string {
@@ -17,13 +30,12 @@ function signRequest(query: string): string {
         .digest('hex');
 }
 
-const publicApi = axios.create({
-    baseURL: CONFIG.BASE_URL,
-});
-
 async function publicGetRequest(endpoint: string, params: Record<string, any> = {}): Promise<any> {
     try {
         const response = await publicApi.get(endpoint, { params });
+        if (responseCapture) {
+            await responseCapture.capture(endpoint, 'GET', response.data);
+        }
         return response.data;
     } catch (error) {
         throw handleApiError(error);
@@ -41,6 +53,9 @@ async function privateGetRequest(endpoint: string, params: Record<string, any> =
 
     try {
         const response = await api.get(url);
+        if (responseCapture) {
+            await responseCapture.capture(endpoint, 'GET', response.data);
+        }
         return response.data;
     } catch (error) {
         throw handleApiError(error);
@@ -57,6 +72,9 @@ async function privatePostRequest(endpoint: string, params: Record<string, any> 
 
     try {
         const response = await api.post(`${endpoint}?signature=${signature}`, queryString);
+        if (responseCapture) {
+            await responseCapture.capture(endpoint, 'POST', response.data);
+        }
         return response.data;
     } catch (error) {
         throw handleApiError(error);
@@ -129,4 +147,11 @@ export async function getOrderBook(symbol: string): Promise<any> {
         throw new Error('Invalid order book data received');
     }
     return response;
+}
+
+// Function to close response capture at the end of the script
+export async function closeResponseCapture(): Promise<void> {
+    if (responseCapture) {
+        await responseCapture.close();
+    }
 }
